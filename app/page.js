@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
+import jsPDF from "jspdf";
 
 const fmt = (n) => {
   if (!isFinite(n)) return "$ 0,00";
@@ -77,6 +78,16 @@ export default function Page() {
   const [insumos, setInsumos] = useState("0");
   const [multiplicadorGanancia, setMultiplicadorGanancia] = useState("4");
 
+  const [nombreNegocio, setNombreNegocio] = useState("Juanjo 3D");
+  const [nombreCliente, setNombreCliente] = useState("");
+  const [descripcionTrabajo, setDescripcionTrabajo] = useState("Impresión 3D");
+  const [whatsapp, setWhatsapp] = useState("");
+  const [instagram, setInstagram] = useState("");
+  const [validezPresupuesto, setValidezPresupuesto] = useState("7");
+  const [observaciones, setObservaciones] = useState(
+    "Seña del 50% para comenzar. Los tiempos pueden variar según demanda y complejidad."
+  );
+
   const valores = useMemo(() => {
     const kg = num(precioKgFilamento);
     const kwh = num(precioKwh);
@@ -130,6 +141,95 @@ export default function Page() {
     multiplicadorGanancia,
   ]);
 
+  const descargarPDF = () => {
+    const pdf = new jsPDF({ unit: "mm", format: "a4" });
+    const fecha = new Date().toLocaleDateString("es-AR");
+
+    const clienteFinal = nombreCliente || "Consumidor final";
+    const trabajoFinal = descripcionTrabajo || "Impresión 3D";
+
+    pdf.setFillColor(15, 23, 42);
+    pdf.rect(0, 0, 210, 35, "F");
+
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(20);
+    pdf.text(nombreNegocio || "Juanjo 3D", 14, 15);
+
+    pdf.setFontSize(12);
+    pdf.setFont("helvetica", "normal");
+    pdf.text("Presupuesto", 14, 24);
+    pdf.text(`Fecha: ${fecha}`, 14, 30);
+
+    pdf.setTextColor(0, 0, 0);
+
+    let y = 50;
+
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Cliente:", 14, y);
+    pdf.setFont("helvetica", "normal");
+    pdf.text(clienteFinal, 40, y);
+
+    y += 12;
+
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Trabajo:", 14, y);
+
+    pdf.setFont("helvetica", "normal");
+    const trabajoLines = pdf.splitTextToSize(trabajoFinal, 160);
+    pdf.text(trabajoLines, 14, y + 8);
+
+    y += 25;
+
+    pdf.setFillColor(239, 246, 255);
+    pdf.roundedRect(14, y, 182, 25, 4, 4, "F");
+
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(14);
+    pdf.text("Precio total", 18, y + 10);
+
+    pdf.setFontSize(18);
+    pdf.text(fmt(valores.costoTotalCobrar), 18, y + 20);
+
+    y += 40;
+
+    pdf.setFontSize(11);
+
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Tiempo estimado:", 14, y);
+    pdf.setFont("helvetica", "normal");
+    pdf.text(`${num(horas)} hs ${num(minutos)} min`, 70, y);
+
+    y += 10;
+
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Material:", 14, y);
+    pdf.setFont("helvetica", "normal");
+    pdf.text(`${num(gramosFilamento)} g`, 70, y);
+
+    y += 15;
+
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Observaciones:", 14, y);
+
+    pdf.setFont("helvetica", "normal");
+    const obs = pdf.splitTextToSize(
+      observaciones || "Seña del 50% para comenzar.",
+      180
+    );
+    pdf.text(obs, 14, y + 8);
+
+    pdf.setFontSize(10);
+    pdf.setTextColor(100);
+
+    pdf.text(`Validez: ${validezPresupuesto || "7"} días`, 14, 285);
+
+    if (whatsapp) pdf.text(`WhatsApp: ${whatsapp}`, 80, 285);
+    if (instagram) pdf.text(`Instagram: ${instagram}`, 140, 285);
+
+    pdf.save(`presupuesto-${clienteFinal.replace(/\s+/g, "-").toLowerCase()}.pdf`);
+  };
+
   return (
     <main
       style={{
@@ -160,7 +260,9 @@ export default function Page() {
             }}
           >
             <div>
-              <h1 style={{ margin: 0, fontSize: 36, lineHeight: 1.1 }}>Calculadora Juanjo · Impresiones 3D</h1>
+              <h1 style={{ margin: 0, fontSize: 36, lineHeight: 1.1 }}>
+                Calculadora Juanjo · Impresiones 3D
+              </h1>
               <p style={{ color: "rgba(255,255,255,0.85)", marginTop: 10, fontSize: 17 }}>
                 Calculá material, luz, desgaste, margen de error y precio final de forma clara y profesional.
               </p>
@@ -180,13 +282,7 @@ export default function Page() {
           </div>
         </div>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1.1fr 1.1fr 1fr",
-            gap: 20,
-          }}
-        >
+        <div style={{ display: "grid", gridTemplateColumns: "1.1fr 1.1fr 1fr", gap: 20 }}>
           <section style={cardStyle}>
             <h2 style={sectionTitle}>Gastos fijos</h2>
             <div style={{ display: "grid", gap: 16 }}>
@@ -194,28 +290,94 @@ export default function Page() {
               <Field label="Precio kWh" value={precioKwh} onChange={setPrecioKwh} />
               <Field label="Consumo real por hora (W)" value={consumoW} onChange={setConsumoW} />
               <Field label="Precio repuestos" value={precioRepuestos} onChange={setPrecioRepuestos} />
-              <Field label="Horas de uso hasta cambiar repuesto" value={horasVidaRepuesto} onChange={setHorasVidaRepuesto} />
+              <Field
+                label="Horas de uso hasta cambiar repuesto"
+                value={horasVidaRepuesto}
+                onChange={setHorasVidaRepuesto}
+              />
               <Field label="Porcentaje de error" value={porcentajeError} onChange={setPorcentajeError} />
               <Field label="Otros gastos fijos prorrateados" value={gastosFijos} onChange={setGastosFijos} />
             </div>
           </section>
 
           <section style={cardStyle}>
-            <h2 style={sectionTitle}>Pieza</h2>
+            <h2 style={sectionTitle}>Pieza y cliente</h2>
             <div style={{ display: "grid", gap: 16 }}>
+              <Field
+                label="Nombre del negocio"
+                value={nombreNegocio}
+                onChange={setNombreNegocio}
+                placeholder="Ej: Juanjo 3D"
+              />
+              <Field
+                label="Nombre del cliente"
+                value={nombreCliente}
+                onChange={setNombreCliente}
+                placeholder="Ej: Juan Pérez"
+              />
+              <Field
+                label="Descripción del trabajo"
+                value={descripcionTrabajo}
+                onChange={setDescripcionTrabajo}
+                placeholder="Ej: Maceta hexagonal"
+              />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <Field
+                  label="WhatsApp"
+                  value={whatsapp}
+                  onChange={setWhatsapp}
+                  placeholder="Ej: 11 1234-5678"
+                />
+                <Field
+                  label="Instagram"
+                  value={instagram}
+                  onChange={setInstagram}
+                  placeholder="Ej: @juanjo3d"
+                />
+              </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <Field label="Horas" value={horas} onChange={setHoras} />
                 <Field label="Minutos" value={minutos} onChange={setMinutos} />
               </div>
               <Field label="Gramos de filamento" value={gramosFilamento} onChange={setGramosFilamento} />
               <Field label="Insumos" value={insumos} onChange={setInsumos} />
-              <Field label="Margen de ganancia" value={multiplicadorGanancia} onChange={setMultiplicadorGanancia} />
-
+              <Field
+                label="Margen de ganancia"
+                value={multiplicadorGanancia}
+                onChange={setMultiplicadorGanancia}
+              />
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
-                <button onClick={() => setMultiplicadorGanancia("4")} style={multiplicadorGanancia === "4" ? activeBtn : btn}>Minorista</button>
-                <button onClick={() => setMultiplicadorGanancia("3")} style={multiplicadorGanancia === "3" ? activeBtn : btn}>Mayorista</button>
-                <button onClick={() => setMultiplicadorGanancia("5")} style={multiplicadorGanancia === "5" ? activeBtn : btn}>Llaveros</button>
+                <button
+                  onClick={() => setMultiplicadorGanancia("4")}
+                  style={multiplicadorGanancia === "4" ? activeBtn : btn}
+                >
+                  Minorista
+                </button>
+                <button
+                  onClick={() => setMultiplicadorGanancia("3")}
+                  style={multiplicadorGanancia === "3" ? activeBtn : btn}
+                >
+                  Mayorista
+                </button>
+                <button
+                  onClick={() => setMultiplicadorGanancia("5")}
+                  style={multiplicadorGanancia === "5" ? activeBtn : btn}
+                >
+                  Llaveros
+                </button>
               </div>
+              <Field
+                label="Validez del presupuesto (días)"
+                value={validezPresupuesto}
+                onChange={setValidezPresupuesto}
+                placeholder="7"
+              />
+              <Field
+                label="Observaciones"
+                value={observaciones}
+                onChange={setObservaciones}
+                placeholder="Condiciones del trabajo"
+              />
             </div>
           </section>
 
@@ -232,6 +394,14 @@ export default function Page() {
               <Row label="Costo total incluyendo insumos" value={fmt(valores.costoTotalIncluyendoInsumos)} highlight />
               <Row label="Costo total a cobrar" value={fmt(valores.costoTotalCobrar)} highlight />
               <Row label="Opción Mercado Libre" value={fmt(valores.mercadoLibre)} highlight />
+            </div>
+            <div style={{ marginTop: 18, display: "grid", gap: 10 }}>
+              <button onClick={descargarPDF} style={downloadBtn}>
+                Descargar presupuesto PDF
+              </button>
+              <div style={{ color: "#64748b", fontSize: 13 }}>
+                El PDF muestra solo la información importante para el cliente.
+              </div>
             </div>
           </section>
         </div>
@@ -274,4 +444,16 @@ const activeBtn = {
   color: "#ffffff",
   border: "1px solid #1d4ed8",
   boxShadow: "0 10px 20px rgba(37, 99, 235, 0.28)",
+};
+
+const downloadBtn = {
+  padding: "14px 16px",
+  borderRadius: 16,
+  border: "none",
+  background: "linear-gradient(135deg, #16a34a 0%, #15803d 100%)",
+  color: "#ffffff",
+  cursor: "pointer",
+  fontWeight: 800,
+  fontSize: 16,
+  boxShadow: "0 12px 24px rgba(22, 163, 74, 0.28)",
 };
